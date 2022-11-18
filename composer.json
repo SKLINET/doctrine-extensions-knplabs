@@ -12,7 +12,6 @@
     }
   ],
   "require": {
-    "php": ">=7.2",
     "contributte/di": "^0.5.0",
     "doctrine/orm": "^2.5.0",
     "knplabs/doctrine-behaviors": "^2.0.8"
