@@ -2,7 +2,6 @@
 
 namespace Nettrine\Extensions\KnpLabs\DI;
 
-use Contributte\DI\Helper\ExtensionDefinitionsHelper;
 use Knp\DoctrineBehaviors\Model\Blameable\BlameableTrait;
 use Knp\DoctrineBehaviors\Model\Sluggable\SluggableTrait;
 use Knp\DoctrineBehaviors\Model\SoftDeletable\SoftDeletableTrait;
@@ -105,16 +104,17 @@ final class KnpLabsBehaviorExtension extends CompilerExtension
 	{
 		$builder = $this->getContainerBuilder();
 		$config = $this->config;
-		$definitionsHelper = new ExtensionDefinitionsHelper($this->compiler);
 
 		if ($config->blameable !== false) {
+			$userProvider = $this->getCallableFromConfig(
+				$config->blameable->userCallable,
+				$this->prefix('blameable.callback')
+			);
+
 			$builder->addDefinition($this->prefix('blameable'))
 				->setType(BlameableEventSubscriber::class)
 				->setArguments([
-					'userProvider' => $definitionsHelper->getCallableFromConfig(
-						$config->blameable->userCallable,
-						$this->prefix('blameable.callback')
-					),
+					'userProvider' => $userProvider,
 					'blameableUserEntity' => $config->blameable->userEntity,
 				])
 				->setAutowired(false);
@@ -179,6 +179,39 @@ final class KnpLabsBehaviorExtension extends CompilerExtension
 		$builder->addDefinition($this->prefix('tree'))
 			->setType(TreeEventSubscriber::class)
 			->setAutowired(false);
+	}
+
+	// ------------------------------------- Contributte DI methods ---------------------------------- \\
+
+	private function getCallableFromConfig($config, string $preferredPrefix)
+	{
+		if (is_callable($config)) {
+			return $config;
+		}
+
+		if (is_array($config) && is_callable($config, true) && \Nette\Utils\Strings::startsWith($config[0], '@')) {
+			return $config;
+		}
+
+		return $this->getDefinitionFromConfig($config, $preferredPrefix);
+	}
+
+	private function getDefinitionFromConfig($config, string $preferredPrefix)
+	{
+		$builder = $this->getContainerBuilder();
+
+		if (is_string($config) && \Nette\Utils\Strings::startsWith($config, '@')) {
+			$definitionName = substr($config, 1);
+
+			if ($builder->hasDefinition($definitionName)) {
+				return $builder->getDefinition($definitionName);
+			}
+
+			return $config;
+		}
+
+		$this->compiler->loadDefinitionsFromConfig([$preferredPrefix => $config]);
+		return $builder->getDefinition($preferredPrefix);
 	}
 
 }
